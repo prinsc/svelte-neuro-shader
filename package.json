@@ -8,7 +8,10 @@
     "type": "module",
     "svelte": "./NeuroShader.svelte",
     "exports": {
-        ".": "./NeuroShader.svelte"
+        ".": {
+            "svelte": "./NeuroShader.svelte",
+            "default": "./NeuroShader.svelte"
+        }
     },
     "files": [
         "NeuroShader.svelte",
