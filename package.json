@@ -1,0 +1,29 @@
+{
+    "name": "@prinsc/svelte-neuro-shader",
+    "version": "1.0.0",
+    "description": "Animated WebGL neuro shader for Svelte",
+    "type": "module",
+    "svelte": "./NeuroShader.svelte",
+    "exports": {
+        ".": "./NeuroShader.svelte"
+    },
+    "files": [
+        "NeuroShader.svelte",
+        "README.md"
+    ],
+    "peerDependencies": {
+        "svelte": "^4.0.0 || ^5.0.0"
+    },
+    "keywords": [
+        "svelte",
+        "shader",
+        "webgl",
+        "animation"
+    ],
+    "author": "Klyuvitkin Eléazar",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/tonpseudo/svelte-neuro-shader.git"
+    }
+}
