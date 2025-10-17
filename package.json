@@ -1,6 +1,9 @@
 {
     "name": "@prinsc/svelte-neuro-shader",
-    "version": "1.0.0",
+    "version": "1.0.2",
+    "publishConfig": {
+        "access": "public"
+    },
     "description": "Animated WebGL neuro shader for Svelte",
     "type": "module",
     "svelte": "./NeuroShader.svelte",
