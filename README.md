@@ -23,12 +23,15 @@ Based on https://codepen.io/ksenia-k/pen/vYwgrWv
 
 ```bash
 
+# For Svelte 5
 npm install @prinsc/svelte-neuro-shader
+
+# For Svelte 4:
+npm install @prinsc/svelte-neuro-shader@^1.0.0
 ```
 ### Requirements
 
-- **Svelte** ^4.x  
-- **SvelteKit** (optional, but examples use SvelteKit’s browser guard)
+- **SvelteKit** ^4.x  || ^5.x
 
 ---
 
