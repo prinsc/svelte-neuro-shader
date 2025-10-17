@@ -75,7 +75,7 @@ WebGL is browser-only. In SvelteKit, guard rendering with the browser flag so th
 
 ## Example Presets
 
-```JS
+```html
 <!-- Deep green -->
 <NeuroShader baseColor={{ r: 0.05, g: 0.35, b: 0.15 }} />
 
@@ -107,7 +107,8 @@ WebGL is browser-only. In SvelteKit, guard rendering with the browser flag so th
     };
   }
 </script>
-
+```
+```HTML
 {#if browser}
   <section class="hero">
     <NeuroShader
