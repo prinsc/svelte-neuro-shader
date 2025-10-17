@@ -1,52 +1,52 @@
 <!-- NeuroShader.svelte -->
 <script>
-    import { untrack } from 'svelte';
-    import { browser } from '$app/environment';
+	import { untrack } from 'svelte';
+	import { browser } from '$app/environment';
 
-    // ===== PROPS =====
-    let {
-        baseColor = $bindable({ r: 0.05, g: 0.35, b: 0.15 }),
-        iterations = 25,
-        rotationAngle = 0.5,
-        initialScale = 8.5,
-        scaleGrowth = 1.19,
-        timeSpeed = 0.0001,
-        pointerStrength = 0.5,
-        uvScale = 0.5,
-        colorTransitionSpeed = 0.05
-    } = $props();
+	// ===== PROPS =====
+	let {
+		baseColor = $bindable({ r: 0.05, g: 0.35, b: 0.15 }),
+		iterations = 25,
+		rotationAngle = 0.5,
+		initialScale = 8.5,
+		scaleGrowth = 1.19,
+		timeSpeed = 0.0001,
+		pointerStrength = 0.5,
+		uvScale = 0.5,
+		colorTransitionSpeed = 0.05
+	} = $props();
 
-    let canvas = $state();
-    let gl = $state();
-    let uniforms = $state();
-    let animationFrame = $state();
-    let currentColor = $state({ ...baseColor });
-    let targetColor = $state({ ...baseColor });
+	let canvas;
+	let gl;
+	let uniforms;
+	let animationFrame;
+	let currentColor = { ...baseColor };
+	let targetColor = { ...baseColor };
+	const isMobile =
+		browser && /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent);
+	const devicePixelRatio = browser ? (isMobile ? 1 : Math.min(window.devicePixelRatio, 2)) : 1;
 
-    // ✅ Détection mobile et ajustements automatiques
-    const isMobile =
-        browser && /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent);
-    const devicePixelRatio = browser ? (isMobile ? 1 : Math.min(window.devicePixelRatio, 2)) : 1;
+	const mobileIterations = Math.floor(iterations * 0.4);
+	const targetFPS = isMobile ? 30 : 60;
+	const frameInterval = 1000 / targetFPS;
+	let lastFrameTime = 0;
 
-    // ✅ Paramètres optimisés pour mobile
-    const mobileIterations = Math.floor(iterations * 0.4);
-    const targetFPS = isMobile ? 30 : 60;
-    const frameInterval = 1000 / targetFPS;
-    let lastFrameTime = 0;
+	$effect(() => {
+		targetColor = { ...baseColor };
 
-    // ✅ Reactif aux changements de baseColor
-    $effect(() => {
-        targetColor = { ...baseColor };
-    });
+		if (currentColor) {
+			currentColor = { ...baseColor };
+		}
+	});
 
-    const pointer = {
-        x: 0,
-        y: 0,
-        tX: 0,
-        tY: 0
-    };
+	const pointer = {
+		x: 0,
+		y: 0,
+		tX: 0,
+		tY: 0
+	};
 
-    const vertexShaderSource = `
+	const vertexShaderSource = `
     precision mediump float;
     varying vec2 vUv;
     attribute vec2 a_position;
@@ -57,7 +57,7 @@
     }
   `;
 
-    const fragmentShaderSource = `
+	const fragmentShaderSource = `
     precision lowp float;
 
     varying vec2 vUv;
@@ -129,155 +129,157 @@
     }
   `;
 
-    function initShader() {
-        gl = canvas.getContext('webgl', {
-            alpha: true,
-            antialias: false,
-            powerPreference: isMobile ? 'low-power' : 'high-performance'
-        });
+	function initShader() {
+		gl = canvas.getContext('webgl', {
+			alpha: true,
+			antialias: false,
+			powerPreference: isMobile ? 'low-power' : 'high-performance'
+		});
 
-        if (!gl) {
-            console.warn('WebGL not supported');
-            return;
-        }
+		if (!gl) {
+			console.warn('WebGL not supported');
+			return;
+		}
 
-        function createShader(gl, sourceCode, type) {
-            const shader = gl.createShader(type);
-            gl.shaderSource(shader, sourceCode);
-            gl.compileShader(shader);
+		function createShader(gl, sourceCode, type) {
+			const shader = gl.createShader(type);
+			gl.shaderSource(shader, sourceCode);
+			gl.compileShader(shader);
 
-            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-                console.error('Shader compilation error: ' + gl.getShaderInfoLog(shader));
-                gl.deleteShader(shader);
-                return null;
-            }
+			if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+				console.error('Shader compilation error: ' + gl.getShaderInfoLog(shader));
+				gl.deleteShader(shader);
+				return null;
+			}
 
-            return shader;
-        }
+			return shader;
+		}
 
-        const vertexShader = createShader(gl, vertexShaderSource, gl.VERTEX_SHADER);
-        const fragmentShader = createShader(gl, fragmentShaderSource, gl.FRAGMENT_SHADER);
+		const vertexShader = createShader(gl, vertexShaderSource, gl.VERTEX_SHADER);
+		const fragmentShader = createShader(gl, fragmentShaderSource, gl.FRAGMENT_SHADER);
 
-        function createShaderProgram(gl, vertexShader, fragmentShader) {
-            const program = gl.createProgram();
-            gl.attachShader(program, vertexShader);
-            gl.attachShader(program, fragmentShader);
-            gl.linkProgram(program);
+		function createShaderProgram(gl, vertexShader, fragmentShader) {
+			const program = gl.createProgram();
+			gl.attachShader(program, vertexShader);
+			gl.attachShader(program, fragmentShader);
+			gl.linkProgram(program);
 
-            if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-                console.error('Program link error: ' + gl.getProgramInfoLog(program));
-                return null;
-            }
+			if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+				console.error('Program link error: ' + gl.getProgramInfoLog(program));
+				return null;
+			}
 
-            return program;
-        }
+			return program;
+		}
 
-        const shaderProgram = createShaderProgram(gl, vertexShader, fragmentShader);
-        if (!shaderProgram) return;
+		const shaderProgram = createShaderProgram(gl, vertexShader, fragmentShader);
+		if (!shaderProgram) return;
 
-        uniforms = getUniforms(shaderProgram);
+		uniforms = getUniforms(shaderProgram);
 
-        function getUniforms(program) {
-            let uniforms = [];
-            let uniformCount = gl.getProgramParameter(program, gl.ACTIVE_UNIFORMS);
-            for (let i = 0; i < uniformCount; i++) {
-                let uniformName = gl.getActiveUniform(program, i).name;
-                uniforms[uniformName] = gl.getUniformLocation(program, uniformName);
-            }
-            return uniforms;
-        }
+		function getUniforms(program) {
+			let uniforms = [];
+			let uniformCount = gl.getProgramParameter(program, gl.ACTIVE_UNIFORMS);
+			for (let i = 0; i < uniformCount; i++) {
+				let uniformName = gl.getActiveUniform(program, i).name;
+				uniforms[uniformName] = gl.getUniformLocation(program, uniformName);
+			}
+			return uniforms;
+		}
 
-        const vertices = new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]);
-        const vertexBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+		const vertices = new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]);
+		const vertexBuffer = gl.createBuffer();
+		gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+		gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
 
-        gl.useProgram(shaderProgram);
+		gl.useProgram(shaderProgram);
 
-        const positionLocation = gl.getAttribLocation(shaderProgram, 'a_position');
-        gl.enableVertexAttribArray(positionLocation);
-        gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-        gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+		const positionLocation = gl.getAttribLocation(shaderProgram, 'a_position');
+		gl.enableVertexAttribArray(positionLocation);
+		gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+		gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
 
-        resizeCanvas();
-    }
+		resizeCanvas();
+	}
+	function lerpColor(a, b, t) {
+		const safe = (x) => (typeof x === 'number' && !isNaN(x) ? x : 0);
+		return {
+			r: safe(a.r) + (safe(b.r) - safe(a.r)) * t,
+			g: safe(a.g) + (safe(b.g) - safe(a.g)) * t,
+			b: safe(a.b) + (safe(b.b) - safe(a.b)) * t
+		};
+	}
+	function render(currentTime) {
+		if (currentTime - lastFrameTime < frameInterval) {
+			animationFrame = requestAnimationFrame(render);
+			return;
+		}
+		lastFrameTime = currentTime;
 
-    function render(currentTime) {
-        if (currentTime - lastFrameTime < frameInterval) {
-            animationFrame = requestAnimationFrame(render);
-            return;
-        }
-        lastFrameTime = currentTime;
+		pointer.x += (pointer.tX - pointer.x) * 0.5;
+		pointer.y += (pointer.tY - pointer.y) * 0.5;
 
-        pointer.x += (pointer.tX - pointer.x) * 0.5;
-        pointer.y += (pointer.tY - pointer.y) * 0.5;
+		currentColor = lerpColor(currentColor, targetColor, colorTransitionSpeed);
+		gl.uniform1f(uniforms.u_time, currentTime);
+		gl.uniform2f(
+			uniforms.u_pointer_position,
+			pointer.x / window.innerWidth,
+			1 - pointer.y / window.innerHeight
+		);
+		gl.uniform3f(uniforms.u_base_color, currentColor.r, currentColor.g, currentColor.b);
+		gl.uniform1f(uniforms.u_time_speed, timeSpeed);
+		gl.uniform1f(uniforms.u_pointer_strength, pointerStrength);
+		gl.uniform1f(uniforms.u_initial_scale, initialScale);
+		gl.uniform1i(uniforms.u_iterations, isMobile ? mobileIterations : iterations);
 
-        currentColor.r += (targetColor.r - currentColor.r) * colorTransitionSpeed;
-        currentColor.g += (targetColor.g - currentColor.g) * colorTransitionSpeed;
-        currentColor.b += (targetColor.b - currentColor.b) * colorTransitionSpeed;
+		gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+		animationFrame = requestAnimationFrame(render);
+	}
 
-        gl.uniform1f(uniforms.u_time, currentTime);
-        gl.uniform2f(
-            uniforms.u_pointer_position,
-            pointer.x / window.innerWidth,
-            1 - pointer.y / window.innerHeight
-        );
-        gl.uniform3f(uniforms.u_base_color, currentColor.r, currentColor.g, currentColor.b);
-        gl.uniform1f(uniforms.u_time_speed, timeSpeed);
-        gl.uniform1f(uniforms.u_pointer_strength, pointerStrength);
-        gl.uniform1f(uniforms.u_initial_scale, initialScale);
-        gl.uniform1i(uniforms.u_iterations, isMobile ? mobileIterations : iterations);
+	function resizeCanvas() {
+		canvas.width = window.innerWidth * devicePixelRatio;
+		canvas.height = window.innerHeight * devicePixelRatio;
+		gl.uniform1f(uniforms.u_ratio, canvas.width / canvas.height);
+		gl.viewport(0, 0, canvas.width, canvas.height);
+	}
 
-        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-        animationFrame = requestAnimationFrame(render);
-    }
+	function handlePointerMove(e) {
+		if (isMobile) return;
+		pointer.tX = e.clientX;
+		pointer.tY = e.clientY;
+	}
 
-    function resizeCanvas() {
-        canvas.width = window.innerWidth * devicePixelRatio;
-        canvas.height = window.innerHeight * devicePixelRatio;
-        gl.uniform1f(uniforms.u_ratio, canvas.width / canvas.height);
-        gl.viewport(0, 0, canvas.width, canvas.height);
-    }
+	$effect(() => {
+		if (!canvas) return;
 
-    function handlePointerMove(e) {
-        if (isMobile) return;
-        pointer.tX = e.clientX;
-        pointer.tY = e.clientY;
-    }
+		initShader();
+		render(0);
 
-    // ✅ Remplace onMount - s'exécute quand canvas est disponible
-    $effect(() => {
-        if (!canvas) return;
+		window.addEventListener('resize', resizeCanvas);
+		if (!isMobile) {
+			window.addEventListener('pointermove', handlePointerMove);
+		}
 
-        initShader();
-        render(0);
-
-        window.addEventListener('resize', resizeCanvas);
-        if (!isMobile) {
-            window.addEventListener('pointermove', handlePointerMove);
-        }
-
-        // ✅ Cleanup automatique quand le composant est détruit
-        return () => {
-            if (animationFrame) {
-                cancelAnimationFrame(animationFrame);
-            }
-            window.removeEventListener('resize', resizeCanvas);
-            window.removeEventListener('pointermove', handlePointerMove);
-        };
-    });
+		return () => {
+			if (animationFrame) {
+				cancelAnimationFrame(animationFrame);
+			}
+			window.removeEventListener('resize', resizeCanvas);
+			window.removeEventListener('pointermove', handlePointerMove);
+		};
+	});
 </script>
 
 <canvas bind:this={canvas} id="neuro"></canvas>
 
 <style>
-    canvas#neuro {
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        position: relative;
-        z-index: -1;
-        pointer-events: none !important;
-    }
+	canvas#neuro {
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
+		position: relative;
+		z-index: -1;
+		pointer-events: none !important;
+	}
 </style>
